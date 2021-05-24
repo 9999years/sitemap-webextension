@@ -1,3 +1,5 @@
+// Returns a comparison function (for use with Array.sort) that applies `mapper`
+// to its inputs before comparing them with `<` and `>`.
 function mapCompare(mapper) {
   return (a, b) => {
     a = mapper(a);
@@ -8,6 +10,9 @@ function mapCompare(mapper) {
   };
 }
 
+// Returns a comparison function that sorts by the input comparison functions,
+// using the 2nd comparison function as a "tiebreaker" in case the two inputs
+// are equal according to the 1st comparison function, and so on.
 function tiebreak(...tiebreakers) {
   return (a, b) => {
     for (const tiebreaker of tiebreakers) {
@@ -20,6 +25,7 @@ function tiebreak(...tiebreakers) {
   };
 }
 
+// See: https://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd
 function changeFreqToNumber(changeFreq) {
   ["never",
     "yearly",
@@ -38,6 +44,9 @@ function getSitemapURL(text) {
     })
 }
 
+// Gets the url of the current tab.
+// The API for this is annoying.
+// Returns a Promise<string>.
 function getCurrentTabURL() {
   return browser.tabs.query({
     active: true,
@@ -45,6 +54,12 @@ function getCurrentTabURL() {
   }).then(tabs => tabs[0].url)
 }
 
+// Reads a sitemap from a Response and parses the urls into a
+// Promise<Array<{
+//   loc: string,
+//   lastmod: string?,
+//   changefreq: string?,
+//   priority: float? }>
 function getSitemapURLs(response) {
   return response.text()
     .then(text => new DOMParser().parseFromString(text, "application/xml"))
@@ -66,6 +81,8 @@ function deserializeSitemapURL(url) {
   return ret;
 }
 
+// Turns a sitemap object (see above.....) into a human-readable (kinda)
+// description. For the omnibox suggestions.
 function getDescription(sitemapUrl) {
   ret = []
   if (sitemapUrl.lastmod !== undefined) {
@@ -78,10 +95,16 @@ function getDescription(sitemapUrl) {
   return ret.join(", ");
 }
 
+// This is actually like. help text or something?
+// Who cares. I hate this API.
 browser.omnibox.setDefaultSuggestion({
   description: "Search sitemap.xml",
 });
 
+// Okay, so `text` here is the user input into the omnibox after the `sitemap `
+// keyword and space(s).
+// So we turn it into a better url, then sort and filter to get an array of
+// suggestion objects.
 function buildSuggestions(text) {
   if (!text.match(/^https?:\/\//)) {
     // If you don't support https in this day and age, type it out.
@@ -103,10 +126,12 @@ function buildSuggestions(text) {
     ))
 }
 
+// Gluing shit together.
 browser.omnibox.onInputChanged.addListener((text, addSuggestions) => {
   buildSuggestions(text).then(addSuggestions)
 });
 
+// I can't believe they don't provide this by default. Meaningless boilerplate.
 browser.omnibox.onInputEntered.addListener((text, disposition) => {
   const url = text;
   ({
